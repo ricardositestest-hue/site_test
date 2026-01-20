@@ -11,7 +11,7 @@ async function listarTextos() {
         table: TABLE
     });
 
-    return result?.data || [];
+    return result || [];
 }
 
 /**
@@ -52,3 +52,4 @@ module.exports = {
     buscarTextoPorKey,
     atualizarTexto
 };
+
