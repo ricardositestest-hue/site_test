@@ -23,7 +23,7 @@ async function callGoEngine(endpoint, payload = {}) {
     );
 
     const result = response.data;
-
+    return result.data.data;
     // 🔥 NORMALIZAÇÃO GLOBAL DE RETORNO
 
     // Caso padrão do Go → { success, count, data: [] }
@@ -104,3 +104,4 @@ module.exports = {
   batchUpdate,
   aggregate,
 };
+
