@@ -1,3 +1,6 @@
+/* =========================
+   IMPORTS
+========================= */
 @import url(cssConponentes/publicServises.css);
 @import url(cssConponentes/publicProfisionais.css);
 @import url(cssConponentes/publicComentarios.css);
@@ -31,35 +34,34 @@
         0 0 5px 3px black,
         0 0 7px var(--primary-blue);
 }
-/* public/css/style.css */
-.btn-admin {
-    width: 100%;
-    background-color: var(--primary-blue);
-    color: #fff;
-    box-shadow: var(--shadow-btn-blue);
-    padding: 8px 12px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-weight: bold;
-    text-shadow: 0 0 3px black;
-}
-
-.btn-admin:hover {
-    background-color: #555;
-}
 
 /* =========================
    RESET E PADRÕES
 ========================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    /* Evita scroll horizontal em qualquer dispositivo */
+    overflow-x: hidden;
+    width: 100%;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Inter', 'Montserrat', Arial, sans-serif;
     margin: 0;
     background-color: #1a1a2e;
-    overflow-x: hidden !important;
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
 }
 
 main, section, article {
     width: 100%;
+    max-width: 100vw; /* Nunca ultrapassa a largura da tela */
 }
 
 section {
@@ -70,7 +72,6 @@ article {
     min-height: 500px;
     position: relative;
     overflow: hidden;
-    
 }
 
 /* =========================
@@ -81,15 +82,18 @@ article {
     top: 0;
     left: 0;
     width: 100%;
-    transition: 0.5s;
+    height: 100%;
+    object-fit: cover; /* Mantém proporção sem distorcer */
+    transition: opacity 0.5s ease;
 }
 
 .inf {
     position: absolute;
     bottom: 15%;
     left: 5%;
-    width: 70%;
-    padding: 10px;
+    width: 90%; /* Era 70%, agora ocupa mais espaço */
+    max-width: 600px; /* Limite para telas grandes */
+    padding: 1rem;
     background-color: var(--overlay-dark);
     border-radius: 20px;
     color: var(--text-light);
@@ -103,11 +107,12 @@ article {
 
 .inf > h1 {
     font-family: sans-serif;
-    font-size: 1.3em;
+    font-size: clamp(1.2rem, 4vw, 1.8rem); /* Responsivo */
     font-weight: 300;
     text-align: left;
     text-shadow: 0 0 5px black, 0 0 5px #fff;
     padding-left: 5px;
+    margin-bottom: 0.5rem;
 }
 
 .inf > p {
@@ -115,6 +120,7 @@ article {
     text-align: left;
     font-family: monospace;
     font-weight: 700;
+    font-size: clamp(0.85rem, 3vw, 1rem);
     padding: 10px;
     border-radius: var(--border-radius);
     color: #31beff;
@@ -136,18 +142,22 @@ article {
     display: flex;
     justify-content: space-evenly;
     align-items: center;
+    padding: 0 5%;
+    gap: 1rem;
     animation: animacao_btn 10s infinite linear;
 }
 
 .btns > .a1,
 .btns > .a2 {
-    padding: 12px 25px;
+    padding: clamp(10px, 2.5vw, 12px) clamp(20px, 5vw, 25px);
     color: #fff;
     text-decoration: none;
     border-radius: 6px;
     font-weight: bold;
+    font-size: clamp(0.85rem, 3vw, 1rem);
     text-shadow: 0 0 3px black;
     transition: transform 0.2s, box-shadow 0.3s;
+    white-space: nowrap; /* Evita quebra */
 }
 
 .btns > .a1 {
@@ -160,8 +170,29 @@ article {
     box-shadow: var(--shadow-btn-blue);
 }
 
+.btns > .a1:hover,
+.btns > .a2:hover {
+    transform: translateY(-3px);
+}
+
+.btn-admin {
+    width: 100%;
+    background-color: var(--primary-blue);
+    color: #fff;
+    box-shadow: var(--shadow-btn-blue);
+    padding: 8px 12px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: bold;
+    text-shadow: 0 0 3px black;
+}
+
+.btn-admin:hover {
+    background-color: #555;
+}
+
 /* =========================
-   ANIMAÇÃO DE BOTÕES
+   ANIMAÇÕES
 ========================= */
 @keyframes animacao_btn {
     0%, 45%, 55%, 100% { transform: rotate(0deg); }
@@ -201,3 +232,65 @@ article {
     80%, 95% { opacity: 1; }
 }
 
+/* =========================
+   MEDIA QUERIES
+========================= */
+
+/* Mobile pequeno (até 400px) */
+@media (max-width: 400px) {
+    .inf {
+        width: 95%;
+        left: 2.5%;
+        bottom: 10%;
+        padding: 0.8rem;
+    }
+
+    .btns {
+        flex-direction: column;
+        gap: 0.5rem;
+        bottom: 10px;
+    }
+
+    .btns > .a1,
+    .btns > .a2 {
+        width: 80%;
+        text-align: center;
+    }
+}
+
+/* Tablet (601px a 900px) */
+@media (min-width: 601px) and (max-width: 900px) {
+    body, html {
+        font-size: 15px;
+    }
+
+    main {
+        padding: 15px;
+    }
+
+    article {
+        min-height: 600px;
+    }
+}
+
+/* Desktop (acima de 900px) */
+@media (min-width: 901px) {
+    body, html {
+        font-size: 16px;
+    }
+
+    main {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    main > section {
+        max-width: 1400px;
+    }
+
+    article {
+        min-height: 700px;
+    }
+}
