@@ -12,7 +12,7 @@ async function listarComentarios() {
         filter: { ativo: 1 }
     });
 
-    return result?.data || [];
+    return result || [];
 }
 
 /**
@@ -95,3 +95,4 @@ module.exports = {
     deletarComentario,
     listarComentariosHome
 };
+
