@@ -12,7 +12,7 @@ async function listarServicos() {
         order: 'criado_em DESC'
     });
 
-    return result?.data || [];
+    return result || [];
 }
 
 /**
@@ -81,3 +81,4 @@ module.exports = {
     atualizarServico,
     deletarServico
 };
+
