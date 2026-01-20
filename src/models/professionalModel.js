@@ -34,7 +34,7 @@ async function listarProfissionais(ativos = true) {
         order: 'nome ASC'
     });
 
-    return result?.data || [];
+    return result || [];
 }
 
 /**
@@ -110,3 +110,4 @@ module.exports = {
     deletarProfissional,
     listarProfissionaisHome
 };
+
