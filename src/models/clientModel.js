@@ -1,145 +1,150 @@
-// models/clienteModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/clientModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
 const SALT_ROUNDS = 10;
-const TABLE = 'clientes';
+const TABLE = 'clientes'; // prefixo salao_beleza_ é adicionado automaticamente
 
-/**
- * Criar novo cliente
- */
+// ============================================================================
+// CRIAR NOVO CLIENTE
+// ============================================================================
 async function criarCliente(nome, email, telefone, senha) {
-    const senha_hash = await bcrypt.hash(senha, SALT_ROUNDS);
+  const senha_hash = await bcrypt.hash(senha, SALT_ROUNDS);
 
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            nome,
-            email,
-            telefone,
-            senha_hash
-        }
-    });
+  // Monta os dados que vamos enviar
+  const clienteData = {
+    nome,
+    email,
+    telefone,
+    senha_hash
+  };
 
-    return result;
+  // Log para depuração
+  console.log('Dados que serão enviados para inserção:', clienteData);
+
+  const result = await goData.insert({
+    table: TABLE,
+    data: clienteData
+  });
+
+  // Log do resultado da inserção
+  console.log('Resultado da inserção:', result);
+
+  return result;
 }
 
-/**
- * Buscar cliente pelo email
- */
+// ============================================================================
+// BUSCAR CLIENTE POR EMAIL
+// ============================================================================
 async function buscarClientePorEmail(email) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { email },
-        limit: 1
-    });
+  const clientes = await goData.get({
+    table: TABLE,
+    where: { email },
+    limit: 1
+  });
 
-    return result?.data?.[0] || null;
+  return clientes[0] || null;
 }
 
-/**
- * Validar login
- */
+// ============================================================================
+// VALIDAR LOGIN
+// ============================================================================
 async function validarLogin(email, senha) {
-    const cliente = await buscarClientePorEmail(email);
+  const cliente = await buscarClientePorEmail(email);
+  
+  if (!cliente) return null;
 
-    if (!cliente) return null;
+  const senhaValida = await bcrypt.compare(senha, cliente.senha_hash);
+  
+  if (!senhaValida) return null;
 
-    const senhaValida = await bcrypt.compare(senha, cliente.senha_hash);
-
-    if (!senhaValida) return null;
-
-    return cliente;
+  return cliente;
 }
 
-/**
- * Atualizar perfil do cliente
- */
-async function atualizarPerfil(id, nome, email, telefone, senha) {
-    const data = { nome, email, telefone };
+// ============================================================================
+// ATUALIZAR PERFIL
+// ============================================================================
+async function atualizarPerfil(id, nome, email, telefone, senha = null) {
+  const data = { nome, email, telefone };
 
-    if (senha && senha.trim() !== '') {
-        const hash = await bcrypt.hash(senha, SALT_ROUNDS);
-        data.senha_hash = hash;
-    }
+  // Se forneceu senha, criptografa
+  if (senha && senha.trim() !== '') {
+    data.senha_hash = await bcrypt.hash(senha, SALT_ROUNDS);
+  }
 
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data
-    });
-
-    return result;
+  await goData.update({
+    table: TABLE,
+    data,
+    where: { id }
+  });
 }
 
-/**
- * Salvar token de recuperação de senha
- */
+// ============================================================================
+// GERAR TOKEN DE RECUPERAÇÃO
+// ============================================================================
 async function salvarTokenRecuperacao(email) {
-    const token = crypto.randomBytes(32).toString('hex');
-    const expira = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+  const token = crypto.randomBytes(32).toString('hex');
+  const expira = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
-    await goData.batchUpdate({
-        table: TABLE,
-        filter: { email },
-        data: {
-            reset_token: token,
-            reset_token_expira: expira.toISOString().slice(0, 19).replace('T', ' ')
-        }
-    });
+  await goData.update({
+    table: TABLE,
+    data: {
+      reset_token: token,
+      reset_token_expira: expira
+    },
+    where: { email }
+  });
 
-    return token;
+  return token;
 }
 
-/**
- * Buscar cliente por token de recuperação
- */
+// ============================================================================
+// BUSCAR CLIENTE POR TOKEN
+// ============================================================================
 async function buscarPorToken(token) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { reset_token: token },
-        limit: 1
-    });
+  const clientes = await goData.get({
+    table: TABLE,
+    where: { reset_token: token },
+    limit: 1
+  });
 
-    const cliente = result?.data?.[0];
+  const cliente = clientes[0];
 
-    if (!cliente) return null;
-
-    // Verifica se o token ainda é válido
-    const agora = new Date();
-    const expira = new Date(cliente.reset_token_expira);
-
-    if (agora > expira) return null;
-
+  // Verifica se o token ainda é válido
+  if (cliente && new Date(cliente.reset_token_expira) > new Date()) {
     return cliente;
+  }
+
+  return null;
 }
 
-/**
- * Atualizar senha do cliente
- */
+// ============================================================================
+// ATUALIZAR SENHA
+// ============================================================================
 async function atualizarSenha(id, senha) {
-    const hash = await bcrypt.hash(senha, SALT_ROUNDS);
+  const hash = await bcrypt.hash(senha, SALT_ROUNDS);
 
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data: {
-            senha_hash: hash,
-            reset_token: null,
-            reset_token_expira: null
-        }
-    });
-
-    return result;
+  await goData.update({
+    table: TABLE,
+    data: {
+      senha_hash: hash,
+      reset_token: null,
+      reset_token_expira: null
+    },
+    where: { id }
+  });
 }
 
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    criarCliente,
-    buscarClientePorEmail,
-    validarLogin,
-    atualizarPerfil,
-    salvarTokenRecuperacao,
-    buscarPorToken,
-    atualizarSenha
+  criarCliente,
+  buscarClientePorEmail,
+  validarLogin,
+  atualizarPerfil,
+  salvarTokenRecuperacao,
+  buscarPorToken,
+  atualizarSenha
 };

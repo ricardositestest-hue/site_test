@@ -1,55 +1,89 @@
-// models/siteTextsModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/siteTextsModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
 const TABLE = 'site_texts';
 
-/**
- * Listar todos os textos do site
- */
+// ============================================================================
+// LISTAR TODOS OS TEXTOS DO SITE
+// ============================================================================
 async function listarTextos() {
-    const result = await goData.get({
-        table: TABLE
-    });
-
-    return result || [];
+  return await goData.get({
+    table: TABLE,
+    order_by: 'key_name ASC'
+  });
 }
 
-/**
- * Buscar texto por chave
- */
+// ============================================================================
+// BUSCAR TEXTO POR KEY
+// ============================================================================
 async function buscarTextoPorKey(key_name) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { key_name },
-        limit: 1
-    });
+  const textos = await goData.get({
+    table: TABLE,
+    where: { key_name },
+    limit: 1
+  });
 
-    return result?.data?.[0] || null;
+  return textos[0] || null;
 }
 
-/**
- * Atualizar texto do site
- */
+// ============================================================================
+// ATUALIZAR TEXTO
+// ============================================================================
 async function atualizarTexto(key_name, value) {
-    // Busca o registro existente
-    const existente = await buscarTextoPorKey(key_name);
-
-    if (!existente) {
-        throw new Error(`Chave ${key_name} não encontrada`);
-    }
-
-    const result = await goData.update({
-        table: TABLE,
-        id: existente.id,
-        data: { value }
-    });
-
-    return result;
+  await goData.update({
+    table: TABLE,
+    data: { value },
+    where: { key_name }
+  });
 }
 
-module.exports = {
-    listarTextos,
-    buscarTextoPorKey,
-    atualizarTexto
-};
+// ============================================================================
+// CRIAR NOVO TEXTO (CASO NÃO EXISTA)
+// ============================================================================
+async function criarTexto(key_name, value) {
+  return await goData.insert({
+    table: TABLE,
+    data: {
+      key_name,
+      value
+    }
+  });
+}
 
+// ============================================================================
+// DELETAR TEXTO
+// ============================================================================
+async function deletarTexto(key_name) {
+  await goData.remove({
+    table: TABLE,
+    where: { key_name },
+    mode: 'hard'
+  });
+}
+
+// ============================================================================
+// BUSCAR MÚLTIPLOS TEXTOS POR KEYS
+// ============================================================================
+async function buscarTextosPorKeys(keys = []) {
+  if (!Array.isArray(keys) || keys.length === 0) {
+    return await listarTextos();
+  }
+
+  // Como a API não suporta WHERE IN direto, fazemos múltiplas buscas
+  const promises = keys.map(key => buscarTextoPorKey(key));
+  const resultados = await Promise.all(promises);
+  
+  return resultados.filter(r => r !== null);
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+module.exports = {
+  listarTextos,
+  buscarTextoPorKey,
+  buscarTextosPorKeys,
+  atualizarTexto,
+  criarTexto,
+  deletarTexto
+};

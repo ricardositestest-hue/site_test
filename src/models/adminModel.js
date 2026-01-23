@@ -1,125 +1,112 @@
-// models/adminModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/adminModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 const bcrypt = require('bcrypt');
 
-const SALT_ROUNDS = 10;
 const TABLE = 'admin';
+const SALT_ROUNDS = 10;
 
-/**
- * Validar login do administrador
- */
+// ============================================================================
+// VALIDAR LOGIN
+// ============================================================================
 async function validarLogin(email, senha) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { email },
-        limit: 1
-    });
+  const admins = await goData.get({
+    table: TABLE,
+    where: { email },
+    limit: 1
+  });
 
-    const admin = result?.data?.[0];
-    
-    if (!admin) return null;
+  const admin = admins[0];
+  if (!admin) return null;
 
-    const senhaValida = await bcrypt.compare(senha, admin.senha_hash);
-    
-    if (!senhaValida) return null;
+  const senhaValida = await bcrypt.compare(senha, admin.senha_hash);
+  if (!senhaValida) return null;
 
-    return admin;
+  return admin;
 }
 
-/**
- * Atualizar dados do admin (nome e email)
- */
-async function atualizarAdmin(id, nome, email) {
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data: {
-            nome,
-            email
-        }
-    });
-
-    return result;
-}
-
-/**
- * Atualizar senha do admin
- */
-async function atualizarSenha(id, novaSenha) {
-    const senha_hash = await bcrypt.hash(novaSenha, SALT_ROUNDS);
-
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data: { senha_hash }
-    });
-
-    return result;
-}
-
-/**
- * Deletar admin
- */
-async function deletarAdmin(id) {
-    const result = await goData.remove({
-        table: TABLE,
-        id
-    });
-
-    return result;
-}
-
-/**
- * Contar total de administradores
- */
-async function contarAdmins() {
-    const result = await goData.aggregate({
-        table: TABLE,
-        pipeline: {
-            operation: 'COUNT'
-        }
-    });
-
-    return result?.result || 0;
-}
-
-/**
- * Criar novo admin
- */
-async function criarAdmin(nome, email, senha) {
-    const senha_hash = await bcrypt.hash(senha, SALT_ROUNDS);
-
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            nome,
-            email,
-            senha_hash
-        }
-    });
-
-    return result;
-}
-
-/**
- * Listar todos os administradores
- */
+// ============================================================================
+// LISTAR TODOS OS ADMINS
+// ============================================================================
 async function listarAdmins() {
-    const result = await goData.get({
-        table: TABLE,
-        fields: ['id', 'nome', 'email', 'criado_em'],
-        order: 'criado_em DESC'
-    });
-
-    return result?.data || [];
+  return await goData.get({
+    table: TABLE,
+    select: ['id', 'nome', 'email', 'criado_em'],
+    order_by: 'criado_em DESC'
+  });
 }
 
+// ============================================================================
+// CRIAR ADMIN
+// ============================================================================
+async function criarAdmin(nome, email, senha) {
+  const senha_hash = await bcrypt.hash(senha, SALT_ROUNDS);
+
+  return await goData.insert({
+    table: TABLE,
+    data: {
+      nome,
+      email,
+      senha_hash
+    }
+  });
+}
+
+// ============================================================================
+// ATUALIZAR DADOS DO ADMIN
+// ============================================================================
+async function atualizarAdmin(id, nome, email) {
+  await goData.update({
+    table: TABLE,
+    data: { nome, email },
+    where: { id }
+  });
+}
+
+// ============================================================================
+// ATUALIZAR SENHA
+// ============================================================================
+async function atualizarSenha(id, novaSenha) {
+  const senha_hash = await bcrypt.hash(novaSenha, SALT_ROUNDS);
+
+  await goData.update({
+    table: TABLE,
+    data: { senha_hash },
+    where: { id }
+  });
+}
+
+// ============================================================================
+// DELETAR ADMIN
+// ============================================================================
+async function deletarAdmin(id) {
+  await goData.remove({
+    table: TABLE,
+    where: { id },
+    mode: 'hard'
+  });
+}
+
+// ============================================================================
+// CONTAR TOTAL DE ADMINS
+// ============================================================================
+async function contarAdmins() {
+  const total = await goData.aggregate({
+    table: TABLE,
+    operation: 'COUNT'
+  });
+
+  return total;
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    validarLogin,
-    atualizarAdmin,
-    atualizarSenha,
-    deletarAdmin,
-    contarAdmins,
-    criarAdmin,
-    listarAdmins
+  validarLogin,
+  listarAdmins,
+  criarAdmin,
+  atualizarAdmin,
+  atualizarSenha,
+  deletarAdmin,
+  contarAdmins
 };

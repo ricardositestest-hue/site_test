@@ -1,113 +1,113 @@
-// models/professionalModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/professionalModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
 const TABLE = 'profissionais';
 
-/**
- * Criar novo profissional
- */
-async function criarProfissional(nome, especialidade, img) {
-    if (!nome || nome.trim() === '') {
-        throw new Error('Nome do profissional é obrigatório');
+// ============================================================================
+// CRIAR PROFISSIONAL
+// ============================================================================
+async function criarProfissional(nome, especialidade = null, img = null) {
+  if (!nome || nome.trim() === '') {
+    throw new Error('Nome do profissional é obrigatório');
+  }
+
+  return await goData.insert({
+    table: TABLE,
+    data: {
+      nome: nome.trim(),
+      especialidade: especialidade?.trim() || null,
+      img: img || null,
+      ativo: 1
     }
-
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            nome: nome.trim(),
-            especialidade: especialidade?.trim() || null,
-            img: img || null,
-            ativo: 1
-        }
-    });
-
-    return result;
+  });
 }
 
-/**
- * Listar profissionais (ativos ou inativos)
- */
+// ============================================================================
+// LISTAR PROFISSIONAIS (ADMIN)
+// ============================================================================
 async function listarProfissionais(ativos = true) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { ativo: ativos ? 1 : 0 },
-        order: 'nome ASC'
-    });
-
-    return result || [];
+  return await goData.get({
+    table: TABLE,
+    where: { ativo: ativos ? 1 : 0 },
+    order_by: 'nome ASC'
+  });
 }
 
-/**
- * Buscar profissional por ID
- */
+// ============================================================================
+// LISTAR PROFISSIONAIS PARA HOME (CLIENTE)
+// ============================================================================
+async function listarProfissionaisHome(limit = 0) {
+  const params = {
+    table: TABLE,
+    where: { ativo: 1 },
+    order_by: 'nome ASC'
+  };
+
+  if (limit > 0) {
+    params.limit = limit;
+  }
+
+  return await goData.get(params);
+}
+
+// ============================================================================
+// BUSCAR PROFISSIONAL POR ID
+// ============================================================================
 async function buscarProfissionalPorId(id) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { id },
-        limit: 1
-    });
+  const profissionais = await goData.get({
+    table: TABLE,
+    where: { id },
+    limit: 1
+  });
 
-    return result?.data?.[0] || null;
+  return profissionais[0] || null;
 }
 
-/**
- * Atualizar dados de um profissional
- */
-async function atualizarProfissional(id, nome, especialidade, img, ativo) {
-    if (!nome || nome.trim() === '') {
-        throw new Error('Nome do profissional é obrigatório');
-    }
+// ============================================================================
+// ATUALIZAR PROFISSIONAL
+// ============================================================================
+async function atualizarProfissional(id, nome, especialidade = null, img = null, ativo = true) {
+  if (!nome || nome.trim() === '') {
+    throw new Error('Nome do profissional é obrigatório');
+  }
 
-    const data = {
-        nome: nome.trim(),
-        especialidade: especialidade?.trim() || null,
-        ativo: ativo ? 1 : 0
-    };
+  const data = {
+    nome: nome.trim(),
+    especialidade: especialidade?.trim() || null,
+    ativo: ativo ? 1 : 0
+  };
 
-    if (img) {
-        data.img = img;
-    }
+  // Só atualiza a imagem se foi fornecida
+  if (img) {
+    data.img = img;
+  }
 
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data
-    });
-
-    return result;
+  await goData.update({
+    table: TABLE,
+    data,
+    where: { id }
+  });
 }
 
-/**
- * Deletar profissional
- */
+// ============================================================================
+// DELETAR PROFISSIONAL
+// ============================================================================
 async function deletarProfissional(id) {
-    const result = await goData.remove({
-        table: TABLE,
-        id
-    });
-
-    return result;
+  await goData.remove({
+    table: TABLE,
+    where: { id },
+    mode: 'hard'
+  });
 }
 
-/**
- * Listar profissionais para home do cliente (apenas ativos)
- */
-async function listarProfissionaisHome() {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { ativo: 1 },
-        order: 'nome ASC'
-    });
-
-    return result?.data || [];
-}
-
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    criarProfissional,
-    listarProfissionais,
-    buscarProfissionalPorId,
-    atualizarProfissional,
-    deletarProfissional,
-    listarProfissionaisHome
+  criarProfissional,
+  listarProfissionais,
+  listarProfissionaisHome,
+  buscarProfissionalPorId,
+  atualizarProfissional,
+  deletarProfissional
 };
-

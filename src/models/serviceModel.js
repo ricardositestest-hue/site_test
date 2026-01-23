@@ -1,84 +1,103 @@
-// models/serviceModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/serviceModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
 const TABLE = 'servicos';
 
-/**
- * Listar todos os serviços
- */
+// ============================================================================
+// LISTAR TODOS OS SERVIÇOS
+// ============================================================================
 async function listarServicos() {
-    const result = await goData.get({
-        table: TABLE,
-        order: 'criado_em DESC'
-    });
-
-    return result || [];
+  return await goData.get({
+    table: TABLE,
+    order_by: 'criado_em DESC'
+  });
 }
 
-/**
- * Criar novo serviço
- */
-async function criarServico(nome, duracao_min, preco, img) {
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            nome,
-            duracao_min,
-            preco,
-            img: img || null
-        }
-    });
+// ============================================================================
+// LISTAR SERVIÇOS PARA HOME (CLIENTE)
+// ============================================================================
+async function listarServicosHome(limit = 0) {
+  const params = {
+    table: TABLE,
+    order_by: 'criado_em DESC'
+  };
 
-    return result;
+  if (limit > 0) {
+    params.limit = limit;
+  }
+
+  return await goData.get(params);
 }
 
-/**
- * Listar serviços para home (todos os serviços)
- */
-async function listarServicosHome() {
-    return listarServicos();
-}
-
-/**
- * Atualizar serviço
- */
-async function atualizarServico(id, nome, duracao_min, preco, imgName) {
-    const data = {
-        nome,
-        duracao_min,
-        preco
-    };
-
-    if (imgName) {
-        data.img = imgName;
+// ============================================================================
+// CRIAR NOVO SERVIÇO
+// ============================================================================
+async function criarServico(nome, duracao_min, preco, img = null) {
+  return await goData.insert({
+    table: TABLE,
+    data: {
+      nome,
+      duracao_min,
+      preco,
+      img: img || null
     }
-
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data
-    });
-
-    return result;
+  });
 }
 
-/**
- * Deletar serviço
- */
+// ============================================================================
+// ATUALIZAR SERVIÇO
+// ============================================================================
+async function atualizarServico(id, nome, duracao_min, preco, imgName = null) {
+  const data = {
+    nome,
+    duracao_min,
+    preco
+  };
+
+  // Só atualiza a imagem se foi fornecida
+  if (imgName) {
+    data.img = imgName;
+  }
+
+  await goData.update({
+    table: TABLE,
+    data,
+    where: { id }
+  });
+}
+
+// ============================================================================
+// DELETAR SERVIÇO
+// ============================================================================
 async function deletarServico(id) {
-    const result = await goData.remove({
-        table: TABLE,
-        id
-    });
-
-    return result;
+  await goData.remove({
+    table: TABLE,
+    where: { id },
+    mode: 'hard'
+  });
 }
 
-module.exports = {
-    listarServicos,
-    criarServico,
-    listarServicosHome,
-    atualizarServico,
-    deletarServico
-};
+// ============================================================================
+// BUSCAR SERVIÇO POR ID
+// ============================================================================
+async function buscarServicoPorId(id) {
+  const servicos = await goData.get({
+    table: TABLE,
+    where: { id },
+    limit: 1
+  });
 
+  return servicos[0] || null;
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+module.exports = {
+  listarServicos,
+  listarServicosHome,
+  criarServico,
+  atualizarServico,
+  deletarServico,
+  buscarServicoPorId
+};

@@ -1,98 +1,107 @@
-// models/commentsModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/commentModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
 const TABLE = 'comments';
 
-/**
- * Listar comentários ativos (para exibição pública)
- */
+// ============================================================================
+// LISTAR COMENTÁRIOS ATIVOS (PÚBLICO)
+// ============================================================================
 async function listarComentarios() {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { ativo: 1 }
-    });
-
-    return result || [];
+  return await goData.get({
+    table: TABLE,
+    where: { ativo: 1 },
+    order_by: 'id DESC'
+  });
 }
 
-/**
- * Listar todos os comentários (admin)
- */
+// ============================================================================
+// LISTAR TODOS OS COMENTÁRIOS (ADMIN)
+// ============================================================================
 async function listarTodosComentarios() {
-    const result = await goData.get({
-        table: TABLE
-    });
-
-    return result?.data || [];
+  return await goData.get({
+    table: TABLE,
+    order_by: 'id DESC'
+  });
 }
 
-/**
- * Criar novo comentário
- */
-async function criarComentario(nome, comentario, img) {
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            nome,
-            comentario,
-            img: img || '',
-            ativo: 1
-        }
-    });
-
-    return result;
+// ============================================================================
+// LISTAR COMENTÁRIOS PARA HOME (COM LIMITE)
+// ============================================================================
+async function listarComentariosHome(limit = 5) {
+  return await goData.get({
+    table: TABLE,
+    where: { ativo: 1 },
+    order_by: 'id DESC',
+    limit
+  });
 }
 
-/**
- * Atualizar comentário existente
- */
-async function atualizarComentario(id, nome, comentario, img, ativo) {
-    const result = await goData.update({
-        table: TABLE,
-        id,
-        data: {
-            nome,
-            comentario,
-            img: img || '',
-            ativo: ativo ? 1 : 0
-        }
-    });
-
-    return result;
+// ============================================================================
+// CRIAR COMENTÁRIO
+// ============================================================================
+async function criarComentario(nome, comentario, img = null) {
+  return await goData.insert({
+    table: TABLE,
+    data: {
+      nome,
+      comentario,
+      img: img || '',
+      ativo: 1
+    }
+  });
 }
 
-/**
- * Deletar comentário
- */
+// ============================================================================
+// ATUALIZAR COMENTÁRIO
+// ============================================================================
+async function atualizarComentario(id, nome, comentario, img = null, ativo = true) {
+  const data = {
+    nome,
+    comentario,
+    img: img || '',
+    ativo: ativo ? 1 : 0
+  };
+
+  await goData.update({
+    table: TABLE,
+    data,
+    where: { id }
+  });
+}
+
+// ============================================================================
+// DELETAR COMENTÁRIO
+// ============================================================================
 async function deletarComentario(id) {
-    const result = await goData.remove({
-        table: TABLE,
-        id
-    });
-
-    return result;
+  await goData.remove({
+    table: TABLE,
+    where: { id },
+    mode: 'hard'
+  });
 }
 
-/**
- * Listar comentários para home (máximo 5)
- */
-async function listarComentariosHome() {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { ativo: 1 },
-        order: 'id DESC',
-        limit: 5
-    });
+// ============================================================================
+// BUSCAR COMENTÁRIO POR ID
+// ============================================================================
+async function buscarComentarioPorId(id) {
+  const comentarios = await goData.get({
+    table: TABLE,
+    where: { id },
+    limit: 1
+  });
 
-    return result?.data || [];
+  return comentarios[0] || null;
 }
 
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    listarComentarios,
-    listarTodosComentarios,
-    criarComentario,
-    atualizarComentario,
-    deletarComentario,
-    listarComentariosHome
+  listarComentarios,
+  listarTodosComentarios,
+  listarComentariosHome,
+  criarComentario,
+  atualizarComentario,
+  deletarComentario,
+  buscarComentarioPorId
 };
-

@@ -1,134 +1,156 @@
-// models/professionalScheduleModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/professionalScheduleModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
 const TABLE = 'professional_schedule';
 
-/**
- * Listar grade semanal de um profissional (ordenada)
- */
+// ============================================================================
+// LISTAR GRADE SEMANAL DO PROFISSIONAL
+// ============================================================================
 async function listarGradeProfissional(profissional_id) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { profissional_id }
-    });
+  const grade = await goData.get({
+    table: TABLE,
+    where: { profissional_id }
+  });
 
-    if (!result?.data) return [];
-
-    // Ordena manualmente já que o backend pode não suportar FIELD()
-    const ordem = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
-    return result.data.sort((a, b) => {
-        return ordem.indexOf(a.dia_semana) - ordem.indexOf(b.dia_semana);
-    });
+  // Ordenar manualmente por dia da semana
+  const ordensDias = { seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6, dom: 7 };
+  
+  return grade.sort((a, b) => ordensDias[a.dia_semana] - ordensDias[b.dia_semana]);
 }
 
-/**
- * Listar grade semanal (alias)
- */
+// ============================================================================
+// LISTAR GRADE SEMANAL (ALIAS PARA COMPATIBILIDADE)
+// ============================================================================
 async function listarProfessionalSchedule(profissional_id) {
-    return listarGradeProfissional(profissional_id);
+  return await listarGradeProfissional(profissional_id);
 }
 
-/**
- * Criar ou atualizar grade de um dia específico
- */
+// ============================================================================
+// CRIAR OU ATUALIZAR GRADE DE UM DIA
+// ============================================================================
 async function criarOuAtualizarGrade(
-    profissional_id,
-    dia_semana,
+  profissional_id,
+  dia_semana,
+  abre,
+  abertura,
+  pausa_inicio,
+  pausa_fim,
+  fechamento
+) {
+  // Verificar se já existe
+  const existente = await goData.get({
+    table: TABLE,
+    where: {
+      profissional_id,
+      dia_semana
+    },
+    limit: 1
+  });
+
+  const data = {
     abre,
     abertura,
     pausa_inicio,
     pausa_fim,
     fechamento
-) {
-    // Verifica se já existe
-    const existente = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            dia_semana
-        },
-        limit: 1
+  };
+
+  if (existente.length > 0) {
+    // Atualizar
+    await goData.update({
+      table: TABLE,
+      data,
+      where: {
+        profissional_id,
+        dia_semana
+      }
     });
-
-    const data = {
-        abre,
-        abertura,
-        pausa_inicio,
-        pausa_fim,
-        fechamento
-    };
-
-    if (existente?.data && existente.data.length > 0) {
-        // Atualiza
-        await goData.update({
-            table: TABLE,
-            id: existente.data[0].id,
-            data
-        });
-    } else {
-        // Cria
-        await goData.insert({
-            table: TABLE,
-            data: {
-                profissional_id,
-                dia_semana,
-                ...data
-            }
-        });
-    }
+  } else {
+    // Inserir
+    await goData.insert({
+      table: TABLE,
+      data: {
+        profissional_id,
+        dia_semana,
+        ...data
+      }
+    });
+  }
 }
 
-/**
- * Deletar grade de um dia específico
- */
-async function deletarGrade(profissional_id, dia_semana) {
-    // Busca o registro
-    const existente = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            dia_semana
-        },
-        limit: 1
-    });
-
-    if (existente?.data && existente.data.length > 0) {
-        await goData.remove({
-            table: TABLE,
-            id: existente.data[0].id
-        });
-    }
-}
-
-/**
- * Atualizar grade semanal completa
- */
+// ============================================================================
+// ATUALIZAR GRADE SEMANAL COMPLETA
+// ============================================================================
 async function atualizarProfessionalSchedule(profissional_id, dados) {
-    const dias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+  const dias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
 
-    for (const dia of dias) {
-        const abre = dados[`${dia}_abre`] === 'on' ? 1 : 0;
-        const abertura = dados[`${dia}_abertura`] || '09:00:00';
-        const pausa_inicio = dados[`${dia}_pausa_inicio`] || null;
-        const pausa_fim = dados[`${dia}_pausa_fim`] || null;
-        const fechamento = dados[`${dia}_fechamento`] || '18:00:00';
+  for (let dia of dias) {
+    const abre = dados[`${dia}_abre`] === 'on' ? 1 : 0;
+    const abertura = dados[`${dia}_abertura`] || '09:00:00';
+    const pausa_inicio = dados[`${dia}_pausa_inicio`] || null;
+    const pausa_fim = dados[`${dia}_pausa_fim`] || null;
+    const fechamento = dados[`${dia}_fechamento`] || '18:00:00';
 
-        await criarOuAtualizarGrade(
-            profissional_id,
-            dia,
-            abre,
-            abertura,
-            pausa_inicio,
-            pausa_fim,
-            fechamento
-        );
-    }
+    await criarOuAtualizarGrade(
+      profissional_id,
+      dia,
+      abre,
+      abertura,
+      pausa_inicio,
+      pausa_fim,
+      fechamento
+    );
+  }
 }
 
+// ============================================================================
+// DELETAR GRADE DE UM DIA
+// ============================================================================
+async function deletarGrade(profissional_id, dia_semana) {
+  await goData.remove({
+    table: TABLE,
+    where: {
+      profissional_id,
+      dia_semana
+    },
+    mode: 'hard'
+  });
+}
+
+// ============================================================================
+// BUSCAR GRADE DE UM DIA ESPECÍFICO
+// ============================================================================
+async function buscarGradeDia(profissional_id, dia_semana) {
+  const grades = await goData.get({
+    table: TABLE,
+    where: {
+      profissional_id,
+      dia_semana
+    },
+    limit: 1
+  });
+
+  return grades[0] || null;
+}
+
+// ============================================================================
+// VERIFICAR SE PROFISSIONAL TRABALHA EM UM DIA
+// ============================================================================
+async function verificaTrabalhaEmDia(profissional_id, dia_semana) {
+  const grade = await buscarGradeDia(profissional_id, dia_semana);
+  
+  return grade && grade.abre === 1;
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    listarGradeProfissional,
-    listarProfessionalSchedule,
-    criarOuAtualizarGrade,
-    deletarGrade,
-    atualizarProfessionalSchedule
+  listarGradeProfissional,
+  listarProfessionalSchedule,
+  criarOuAtualizarGrade,
+  atualizarProfessionalSchedule,
+  deletarGrade,
+  buscarGradeDia,
+  verificaTrabalhaEmDia
 };

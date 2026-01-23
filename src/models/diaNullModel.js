@@ -1,80 +1,104 @@
-// models/diaNullModel.js
-const goData = require('../services/nodeApiClient.service.js');
+// models/diaNullModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
 const TABLE = 'dia_null';
 
-/**
- * Listar dias bloqueados de um profissional (a partir de hoje)
- */
+// ============================================================================
+// LISTAR DIAS BLOQUEADOS (A PARTIR DE HOJE)
+// ============================================================================
 async function listarDiasBloqueados(profissional_id) {
-    const hoje = new Date().toISOString().split('T')[0];
+  const hoje = new Date().toISOString().split('T')[0];
 
-    const result = await goData.get({
-        table: TABLE,
-        filter: { profissional_id },
-        order: 'data ASC'
-    });
+  const bloqueios = await goData.get({
+    table: TABLE,
+    where: { profissional_id },
+    order_by: 'data ASC'
+  });
 
-    if (!result?.data) return [];
-
-    // Filtra apenas datas >= hoje
-    return result.data.filter(d => d.data >= hoje);
+  // Filtrar apenas datas >= hoje
+  return bloqueios.filter(b => b.data >= hoje);
 }
 
-/**
- * Criar bloqueio de dia
- */
-async function criarDiaBloqueado(profissional_id, data, motivo) {
-    const hoje = new Date().toISOString().split('T')[0];
-    
-    // Não permite datas passadas
-    if (data < hoje) {
-        throw new Error('Não é possível bloquear datas passadas');
+// ============================================================================
+// CRIAR DIA BLOQUEADO
+// ============================================================================
+async function criarDiaBloqueado(profissional_id, data, motivo = null) {
+  const hoje = new Date().toISOString().split('T')[0];
+  
+  // Não permite datas passadas
+  if (data < hoje) {
+    throw new Error('Não é possível bloquear datas passadas');
+  }
+
+  return await goData.insert({
+    table: TABLE,
+    data: {
+      profissional_id,
+      data,
+      motivo
     }
-
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            profissional_id,
-            data,
-            motivo: motivo || null
-        }
-    });
-
-    return result;
+  });
 }
 
-/**
- * Deletar bloqueio de dia
- */
+// ============================================================================
+// DELETAR DIA BLOQUEADO
+// ============================================================================
 async function deletarDiaBloqueado(id) {
-    const result = await goData.remove({
-        table: TABLE,
-        id
-    });
-
-    return result;
+  await goData.remove({
+    table: TABLE,
+    where: { id },
+    mode: 'hard'
+  });
 }
 
-/**
- * Verificar se um dia está bloqueado
- */
+// ============================================================================
+// VERIFICAR SE UM DIA ESTÁ BLOQUEADO
+// ============================================================================
 async function verificarDiaBloqueado(profissional_id, data) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            data
-        },
-        limit: 1
-    });
+  const bloqueios = await goData.get({
+    table: TABLE,
+    where: {
+      profissional_id,
+      data
+    },
+    limit: 1
+  });
 
-    return result?.data && result.data.length > 0;
+  return bloqueios.length > 0;
 }
 
+// ============================================================================
+// BUSCAR DIA BLOQUEADO POR ID
+// ============================================================================
+async function buscarDiaBloqueadoPorId(id) {
+  const bloqueios = await goData.get({
+    table: TABLE,
+    where: { id },
+    limit: 1
+  });
+
+  return bloqueios[0] || null;
+}
+
+// ============================================================================
+// LISTAR TODOS OS DIAS BLOQUEADOS (ADMIN)
+// ============================================================================
+async function listarTodosDiasBloqueados(profissional_id) {
+  return await goData.get({
+    table: TABLE,
+    where: { profissional_id },
+    order_by: 'data DESC'
+  });
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    listarDiasBloqueados,
-    criarDiaBloqueado,
-    deletarDiaBloqueado,
-    verificarDiaBloqueado
+  listarDiasBloqueados,
+  criarDiaBloqueado,
+  deletarDiaBloqueado,
+  verificarDiaBloqueado,
+  buscarDiaBloqueadoPorId,
+  listarTodosDiasBloqueados
 };

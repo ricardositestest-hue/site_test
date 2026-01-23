@@ -1,318 +1,184 @@
-// models/agendamentosModel.js
-const goData = require('../services/nodeApiClient.service.js');
-const diaNullModel = require('./diaNullModel.js');
-const orariosNullModel = require('./orariosNullModel.js');
-const professionalScheduleModel = require('./professionalScheduleModel.js');
+// models/dashboardModel.js (NOVO - Go Data Engine API)
+const goData = require('../services/goData.service');
 
-const TABLE = 'agendamentos';
+const hojeSQL = () => new Date().toISOString().split('T')[0];
 
-/**
- * Verifica se um horário está ocupado
- */
-async function verificarHorario(profissional_id, data, hora) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            data,
-            hora,
-            status: 'agendado'
-        },
-        limit: 1
+// ============================================================================
+// LUCRO DO DIA
+// ============================================================================
+async function lucroHoje() {
+  const hoje = hojeSQL();
+
+  // Buscar agendamentos concluídos de hoje
+  const agendamentos = await goData.get({
+    table: 'agendamentos',
+    where: {
+      data: hoje,
+      status: 'concluido'
+    },
+    select: ['servico_id']
+  });
+
+  if (agendamentos.length === 0) return 0;
+
+  // Buscar preços dos serviços
+  let total = 0;
+  for (let agendamento of agendamentos) {
+    const servicos = await goData.get({
+      table: 'servicos',
+      where: { id: agendamento.servico_id },
+      select: ['preco'],
+      limit: 1
     });
 
-    return result?.data && result.data.length > 0;
-}
-
-/**
- * Criar agendamento
- */
-async function criarAgendamento(
-    cliente_id,
-    profissional_id,
-    servico_id,
-    data,
-    hora,
-    observacoes = null
-) {
-    const result = await goData.insert({
-        table: TABLE,
-        data: {
-            cliente_id,
-            profissional_id,
-            servico_id,
-            data,
-            hora,
-            observacoes,
-            status: 'agendado'
-        }
-    });
-
-    return result;
-}
-
-/**
- * Listar agendamentos de um cliente
- */
-async function listarPorCliente(cliente_id) {
-    const agendamentos = await goData.get({
-        table: TABLE,
-        filter: { cliente_id },
-        order: 'data ASC, hora ASC'
-    });
-
-    if (!agendamentos?.data || agendamentos.data.length === 0) {
-        return [];
+    if (servicos[0]) {
+      total += parseFloat(servicos[0].preco);
     }
+  }
 
-    // Busca serviços e profissionais
-    const [servicos, profissionais] = await Promise.all([
-        goData.get({ table: 'servicos', fields: ['id', 'nome'] }),
-        goData.get({ table: 'profissionais', fields: ['id', 'nome'] })
-    ]);
-
-    // Formata resultado
-    return agendamentos.data.map(ag => {
-        const dataObj = new Date(ag.data);
-        const dataFormatada = dataObj.toLocaleDateString('pt-BR');
-
-        return {
-            id: ag.id,
-            data: dataFormatada,
-            hora: ag.hora.slice(0, 5),
-            status: ag.status,
-            servico: servicos?.data?.find(s => s.id === ag.servico_id)?.nome || 'N/A',
-            profissional: profissionais?.data?.find(p => p.id === ag.profissional_id)?.nome || 'N/A'
-        };
-    });
+  return total;
 }
 
-/**
- * Listar agendamentos futuros de um cliente
- */
-async function listarFuturosPorCliente(cliente_id) {
-    const hoje = new Date().toISOString().split('T')[0];
+// ============================================================================
+// LUCRO DA SEMANA
+// ============================================================================
+async function lucroSemana() {
+  // Pegar o primeiro dia da semana (segunda-feira)
+  const hoje = new Date();
+  const diaSemana = hoje.getDay();
+  const diff = hoje.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
+  const primeiroDia = new Date(hoje.setDate(diff)).toISOString().split('T')[0];
 
-    const agendamentos = await goData.get({
-        table: TABLE,
-        filter: {
-            cliente_id,
-            status: 'agendado'
-        },
-        order: 'data ASC, hora ASC'
+  // Buscar agendamentos concluídos da semana
+  const agendamentos = await goData.get({
+    table: 'agendamentos',
+    where: {
+      status: 'concluido'
+    },
+    select: ['data', 'servico_id']
+  });
+
+  // Filtrar apenas desta semana
+  const agendamentosSemana = agendamentos.filter(a => a.data >= primeiroDia);
+
+  if (agendamentosSemana.length === 0) return 0;
+
+  // Buscar preços
+  let total = 0;
+  for (let agendamento of agendamentosSemana) {
+    const servicos = await goData.get({
+      table: 'servicos',
+      where: { id: agendamento.servico_id },
+      select: ['preco'],
+      limit: 1
     });
 
-    if (!agendamentos?.data) return [];
-
-    // Filtra apenas agendamentos >= hoje
-    const futuros = agendamentos.data.filter(ag => ag.data >= hoje);
-
-    if (futuros.length === 0) return [];
-
-    // Busca serviços e profissionais
-    const [servicos, profissionais] = await Promise.all([
-        goData.get({ table: 'servicos', fields: ['id', 'nome'] }),
-        goData.get({ table: 'profissionais', fields: ['id', 'nome'] })
-    ]);
-
-    return futuros.map(ag => ({
-        id: ag.id,
-        data: ag.data,
-        hora: ag.hora,
-        status: ag.status,
-        observacoes: ag.observacoes,
-        servico: servicos?.data?.find(s => s.id === ag.servico_id)?.nome || 'N/A',
-        profissional: profissionais?.data?.find(p => p.id === ag.profissional_id)?.nome || 'N/A'
-    }));
-}
-
-/**
- * Buscar agendamento por ID
- */
-async function buscarPorId(id) {
-    const result = await goData.get({
-        table: TABLE,
-        filter: { id },
-        limit: 1
-    });
-
-    return result?.data?.[0] || null;
-}
-
-/**
- * Deletar agendamento
- */
-async function deletarAgendamento(id) {
-    const result = await goData.remove({
-        table: TABLE,
-        id
-    });
-
-    return result;
-}
-
-/**
- * Listar horários agendados de um profissional em uma data
- */
-async function listarHorarios(profissional_id, data) {
-    const agendamentos = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            data
-        },
-        order: 'hora ASC'
-    });
-
-    if (!agendamentos?.data || agendamentos.data.length === 0) {
-        return [];
+    if (servicos[0]) {
+      total += parseFloat(servicos[0].preco);
     }
+  }
 
-    // Busca nomes dos clientes
-    const clientes = await goData.get({
-        table: 'clientes',
-        fields: ['id', 'nome']
-    });
-
-    return agendamentos.data.map(ag => ({
-        id: ag.id,
-        hora: ag.hora,
-        status: ag.status,
-        cliente_nome: clientes?.data?.find(c => c.id === ag.cliente_id)?.nome || 'N/A'
-    }));
+  return total;
 }
 
-/**
- * Listar horários disponíveis para o ADMIN (apenas lista de strings)
- */
-async function listarHorariosDisponiveisAtualizado(profissional_id, data) {
-    const diasBloqueados = await diaNullModel.listarDiasBloqueados(profissional_id);
-    const diaBloqueado = diasBloqueados.some(
-        d => d.data.toISOString?.().split('T')[0] === data || d.data === data
-    );
+// ============================================================================
+// TOTAL DE AGENDAMENTOS HOJE
+// ============================================================================
+async function totalAgendamentosHoje() {
+  const hoje = hojeSQL();
 
-    if (diaBloqueado) return [];
-
-    const diaSemanaNum = new Date(data + 'T00:00:00').getDay();
-    const mapDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-    const diaSemana = mapDias[diaSemanaNum];
-
-    const grade = await professionalScheduleModel.listarGradeProfissional(profissional_id);
-    const diaGrade = grade.find(g => g.dia_semana === diaSemana);
-
-    if (!diaGrade || diaGrade.abre === 0) return [];
-
-    const horarios = gerarHorarios(
-        diaGrade.abertura,
-        diaGrade.fechamento,
-        diaGrade.pausa_inicio,
-        diaGrade.pausa_fim
-    );
-
-    const agendadosResult = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            data,
-            status: 'agendado'
-        }
-    });
-
-    const agendados = agendadosResult?.data?.map(r => r.hora.slice(0, 5)) || [];
-    let disponiveis = horarios.filter(h => !agendados.includes(h));
-
-    const bloqueios = await orariosNullModel.listarOrariosBloqueados(profissional_id, data);
-    const bloqueados = bloqueios.map(b => b.hora.slice(0, 5));
-    disponiveis = disponiveis.filter(h => !bloqueados.includes(h));
-
-    return disponiveis;
-}
-
-/**
- * Listar horários disponíveis para CLIENTE (com status)
- */
-async function listarHorariosDisponiveisCliente(profissional_id, data) {
-    const diaBloqueado = await diaNullModel.verificarDiaBloqueado(profissional_id, data);
-    if (diaBloqueado) return [];
-
-    const diaSemanaNum = new Date(data + 'T00:00:00').getDay();
-    const mapDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-    const diaSemana = mapDias[diaSemanaNum];
-
-    const grade = await professionalScheduleModel.listarGradeProfissional(profissional_id);
-    const diaGrade = grade.find(g => g.dia_semana === diaSemana);
-
-    if (!diaGrade || diaGrade.abre === 0) return [];
-
-    const horarios = gerarHorarios(
-        diaGrade.abertura,
-        diaGrade.fechamento,
-        diaGrade.pausa_inicio,
-        diaGrade.pausa_fim
-    );
-
-    const agendadosResult = await goData.get({
-        table: TABLE,
-        filter: {
-            profissional_id,
-            data,
-            status: 'agendado'
-        }
-    });
-
-    const agendados = agendadosResult?.data?.map(r => r.hora.slice(0, 5)) || [];
-
-    const bloqueios = await orariosNullModel.listarOrariosBloqueados(profissional_id, data);
-    const bloqueados = bloqueios.map(b => b.hora.slice(0, 5));
-
-    return horarios.map(h => ({
-        hora: h,
-        disponivel: !agendados.includes(h) && !bloqueados.includes(h),
-        agendamento: agendados.includes(h) ? { hora: h } : null
-    }));
-}
-
-/**
- * Função auxiliar: gera lista de horários
- */
-function gerarHorarios(abertura, fechamento, pausa_inicio, pausa_fim) {
-    const horarios = [];
-    const intervalo = 30; // minutos
-
-    function horaSoma(horaStr, minutosAdd) {
-        const [h, m] = horaStr.split(':').map(Number);
-        const d = new Date();
-        d.setHours(h);
-        d.setMinutes(m + minutosAdd);
-        return d.toTimeString().split(' ')[0].slice(0, 5);
+  const total = await goData.aggregate({
+    table: 'agendamentos',
+    operation: 'COUNT',
+    where: {
+      data: hoje,
+      status: 'agendado'
     }
+  });
 
-    let horaAtual = abertura.slice(0, 5);
-    const horaFim = fechamento.slice(0, 5);
-    const pausaIni = pausa_inicio?.slice(0, 5);
-    const pausaFim = pausa_fim?.slice(0, 5);
-
-    while (horaAtual < horaFim) {
-        if (pausaIni && pausaFim && horaAtual >= pausaIni && horaAtual < pausaFim) {
-            horaAtual = pausaFim;
-            continue;
-        }
-
-        horarios.push(horaAtual);
-        horaAtual = horaSoma(horaAtual, intervalo);
-    }
-
-    return horarios;
+  return total;
 }
 
+// ============================================================================
+// LISTA DE AGENDAMENTOS DE HOJE
+// ============================================================================
+async function listarAgendaHoje() {
+  const hoje = hojeSQL();
+
+  const agendamentos = await goData.get({
+    table: 'agendamentos',
+    where: {
+      data: hoje,
+      status: 'agendado'
+    },
+    order_by: 'hora ASC'
+  });
+
+  // Buscar dados relacionados
+  for (let agendamento of agendamentos) {
+    const [cliente] = await goData.get({
+      table: 'clientes',
+      where: { id: agendamento.cliente_id },
+      select: ['nome'],
+      limit: 1
+    });
+
+    const [servico] = await goData.get({
+      table: 'servicos',
+      where: { id: agendamento.servico_id },
+      select: ['nome'],
+      limit: 1
+    });
+
+    const [profissional] = await goData.get({
+      table: 'profissionais',
+      where: { id: agendamento.profissional_id },
+      select: ['nome'],
+      limit: 1
+    });
+
+    agendamento.cliente = cliente?.nome || 'N/A';
+    agendamento.servico = servico?.nome || 'N/A';
+    agendamento.profissional = profissional?.nome || 'N/A';
+  }
+
+  return agendamentos;
+}
+
+// ============================================================================
+// ESTATÍSTICAS GERAIS
+// ============================================================================
+async function estatisticasGerais() {
+  const totalClientes = await goData.aggregate({
+    table: 'clientes',
+    operation: 'COUNT'
+  });
+
+  const totalServicos = await goData.aggregate({
+    table: 'servicos',
+    operation: 'COUNT'
+  });
+
+  const totalProfissionais = await goData.aggregate({
+    table: 'profissionais',
+    operation: 'COUNT',
+    where: { ativo: 1 }
+  });
+
+  return {
+    totalClientes,
+    totalServicos,
+    totalProfissionais
+  };
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
 module.exports = {
-    verificarHorario,
-    criarAgendamento,
-    listarPorCliente,
-    listarFuturosPorCliente,
-    buscarPorId,
-    deletarAgendamento,
-    listarHorarios,
-    listarHorariosDisponiveisAtualizado,
-    listarHorariosDisponiveisCliente
+  lucroHoje,
+  lucroSemana,
+  totalAgendamentosHoje,
+  listarAgendaHoje,
+  estatisticasGerais
 };
