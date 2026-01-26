@@ -84,17 +84,12 @@ const insert = async ({ table, data }) => {
     throw new Error("insert requer 'data' com valores");
   }
 
-  // ✅ TRANSFORMAR data em columns (formato que o Go espera)
-  const columns = Object.entries(data).map(([key, value]) => ({
-    name: key,
-    value: value
-  }));
-
+  
   const payload = {
     project_id: PROJECT_ID,
     id_instancia: INSTANCE_ID,  // ✅ Aqui está correto (id_instancia, não instance_id)
     table: table,
-    columns: columns  // ✅ MUDOU DE 'data' PARA 'columns'
+    data: data
   };
 
   const result = await callGoEngine("insert", payload);
@@ -154,18 +149,12 @@ const batchInsert = async ({ table, data }) => {
   }
 
   // ✅ TRANSFORMAR cada objeto em array de columns
-  const rows = data.map(row => 
-    Object.entries(row).map(([key, value]) => ({
-      name: key,
-      value: value
-    }))
-  );
-
+  
   const payload = {
     project_id: PROJECT_ID,
     id_instancia: INSTANCE_ID,
     table: table,
-    rows: rows  // ✅ MUDOU DE 'data' PARA 'rows'
+    data: data  // ✅ MUDOU DE 'data' PARA 'rows'
   };
 
   return callGoEngine("batch-insert", payload);
