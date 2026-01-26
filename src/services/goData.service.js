@@ -76,16 +76,25 @@ const get = async ({ table, where = {}, select = [], order_by = null, limit = nu
 /**
  * INSERT - Inserir único registro
  */
+/**
+ * INSERT - Inserir único registro
+ */
 const insert = async ({ table, data }) => {
   if (!data || Object.keys(data).length === 0) {
     throw new Error("insert requer 'data' com valores");
   }
 
+  // ✅ TRANSFORMAR data em columns (formato que o Go espera)
+  const columns = Object.entries(data).map(([key, value]) => ({
+    name: key,
+    value: value
+  }));
+
   const payload = {
     project_id: PROJECT_ID,
-    id_instancia: INSTANCE_ID,
-    table: table, // ✅ SEM prefixo
-    data
+    id_instancia: INSTANCE_ID,  // ✅ Aqui está correto (id_instancia, não instance_id)
+    table: table,
+    columns: columns  // ✅ MUDOU DE 'data' PARA 'columns'
   };
 
   const result = await callGoEngine("insert", payload);
@@ -136,16 +145,27 @@ const remove = async ({ table, where = {}, mode = "hard" }) => {
 /**
  * BATCH INSERT - Inserir múltiplos registros
  */
+/**
+ * BATCH INSERT - Inserir múltiplos registros
+ */
 const batchInsert = async ({ table, data }) => {
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error("batchInsert requer 'data' como array");
   }
 
+  // ✅ TRANSFORMAR cada objeto em array de columns
+  const rows = data.map(row => 
+    Object.entries(row).map(([key, value]) => ({
+      name: key,
+      value: value
+    }))
+  );
+
   const payload = {
     project_id: PROJECT_ID,
     id_instancia: INSTANCE_ID,
-    table: table, // ✅ SEM prefixo
-    data
+    table: table,
+    rows: rows  // ✅ MUDOU DE 'data' PARA 'rows'
   };
 
   return callGoEngine("batch-insert", payload);
